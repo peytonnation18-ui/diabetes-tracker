@@ -1,812 +1,133 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>MiniMed 780G – Diabetes Tracker</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
-  :root {
-    --bg:#080c10;--surface:#0e1318;--card:#131a22;--card2:#1a2330;
-    --border:#1e2d3d;--border2:#243040;--text:#d4e4f0;--muted:#5a7a94;
-    --blue:#3b9eff;--green:#22d47a;--red:#ff4757;--orange:#ffaa00;
-    --purple:#9b72ff;--teal:#00d4c8;
-  }
-  *{margin:0;padding:0;box-sizing:border-box;}
-  body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
-
-  .header{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
-  .header-title{font-size:1rem;font-weight:600;color:var(--blue);display:flex;align-items:center;gap:10px;}
-  .header-title span{color:var(--muted);font-weight:400;font-size:0.85rem;}
-
-  /* LIVE BADGE */
-  .live-badge{display:flex;align-items:center;gap:8px;}
-  .live-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);animation:none;}
-  .live-dot.live{background:var(--green);animation:pulse 2s infinite;}
-  .live-dot.error{background:var(--red);}
-  @keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.3;}}
-  .live-text{font-size:0.78rem;font-family:'DM Mono',monospace;color:var(--muted);}
-  .live-text.live{color:var(--green);}
-  .live-text.error{color:var(--red);}
-
-  .big-display{background:var(--surface);border-bottom:1px solid var(--border);padding:24px 32px;display:flex;align-items:center;gap:40px;flex-wrap:wrap;}
-  .reading-block{display:flex;flex-direction:column;align-items:center;min-width:180px;}
-  .big-number{font-size:96px;font-weight:700;line-height:1;font-family:'DM Mono',monospace;color:var(--muted);transition:color 0.4s,text-shadow 0.4s;letter-spacing:-4px;}
-  .big-number.in-range{color:var(--green);text-shadow:0 0 40px rgba(34,212,122,0.2);}
-  .big-number.low{color:var(--red);text-shadow:0 0 40px rgba(255,71,87,0.2);}
-  .big-number.high{color:var(--orange);}
-  .big-number.very-high{color:var(--red);}
-  .big-unit{font-size:0.9rem;color:var(--muted);margin-top:4px;font-family:'DM Mono',monospace;}
-  .trend-arrow{font-size:2rem;margin-top:4px;transition:all 0.3s;}
-
-  .status-badge{margin-top:8px;padding:4px 16px;border-radius:20px;font-size:0.8rem;font-weight:600;letter-spacing:1px;text-transform:uppercase;}
-  .badge-in-range{background:rgba(34,212,122,0.15);color:var(--green);border:1px solid rgba(34,212,122,0.3);}
-  .badge-low{background:rgba(255,71,87,0.15);color:var(--red);border:1px solid rgba(255,71,87,0.3);}
-  .badge-high{background:rgba(255,170,0,0.15);color:var(--orange);border:1px solid rgba(255,170,0,0.3);}
-  .badge-very-high{background:rgba(255,71,87,0.15);color:var(--red);border:1px solid rgba(255,71,87,0.3);}
-
-  .display-center{flex:1;min-width:280px;}
-  .last-time{font-size:0.82rem;color:var(--muted);margin-bottom:10px;font-family:'DM Mono',monospace;}
-  .alert-box{background:rgba(255,71,87,0.1);border:1px solid rgba(255,71,87,0.3);border-radius:8px;padding:10px 16px;font-size:0.9rem;font-weight:600;color:var(--red);display:none;margin-bottom:10px;}
-
-  .range-bar-wrap{margin-top:10px;}
-  .range-bar{position:relative;height:6px;border-radius:3px;background:linear-gradient(to right,#ff4757 0%,#ff4757 15%,#22d47a 22%,#22d47a 60%,#ffaa00 72%,#ff4757 90%,#ff4757 100%);margin-bottom:4px;}
-  .range-dot{position:absolute;top:-5px;width:16px;height:16px;border-radius:50%;background:white;border:3px solid var(--bg);transform:translateX(-50%);transition:left 0.5s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 8px rgba(255,255,255,0.4);display:none;}
-  .range-labels{display:flex;justify-content:space-between;font-size:0.68rem;color:var(--muted);}
-
-  /* NIGHTSCOUT STATUS BOX */
-  .ns-status{background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:12px 16px;min-width:220px;}
-  .ns-status-title{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:600;margin-bottom:8px;}
-  .ns-row{display:flex;justify-content:space-between;align-items:center;font-size:0.82rem;margin-bottom:4px;}
-  .ns-row:last-child{margin-bottom:0;}
-  .ns-val{font-family:'DM Mono',monospace;font-weight:600;}
-  .countdown{font-size:0.78rem;color:var(--blue);font-family:'DM Mono',monospace;}
-
-  .quick-stats{display:flex;gap:12px;flex-wrap:wrap;}
-  .qstat{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 18px;text-align:center;min-width:90px;}
-  .qstat-val{font-size:1.4rem;font-weight:700;font-family:'DM Mono',monospace;}
-  .qstat-lbl{font-size:0.68rem;color:var(--muted);margin-top:2px;text-transform:uppercase;letter-spacing:0.5px;}
-
-  .tabs{display:flex;background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;overflow-x:auto;}
-  .tab{padding:12px 20px;font-size:0.88rem;font-weight:500;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s;white-space:nowrap;}
-  .tab:hover{color:var(--text);}
-  .tab.active{color:var(--blue);border-bottom-color:var(--blue);}
-
-  .main{padding:20px 24px;}
-  .tab-content{display:none;}
-  .tab-content.active{display:block;}
-  .two-col{display:grid;grid-template-columns:360px 1fr;gap:20px;}
-
-  .card{background:var(--card);border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-  .card-header{padding:12px 16px;border-bottom:1px solid var(--border);font-size:0.75rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-  .card-body{padding:16px;}
-
-  .form-group{margin-bottom:12px;}
-  .form-label{display:block;font-size:0.78rem;color:var(--muted);margin-bottom:5px;font-weight:500;}
-  .form-input{width:100%;background:var(--bg);border:1px solid var(--border2);color:var(--text);border-radius:8px;padding:9px 12px;font-size:0.9rem;font-family:'DM Sans',sans-serif;outline:none;transition:border-color 0.2s;}
-  .form-input:focus{border-color:var(--blue);}
-  textarea.form-input{resize:vertical;min-height:64px;}
-
-  .btn{border:none;border-radius:8px;font-size:0.9rem;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;transition:opacity 0.15s,transform 0.1s;padding:10px 16px;}
-  .btn:active{transform:scale(0.97);}
-  .btn:hover{opacity:0.88;}
-  .btn-primary{background:var(--blue);color:#fff;width:100%;padding:12px;font-size:0.95rem;}
-  .btn-danger{background:#b91c1c;color:#fff;}
-  .btn-ghost{background:var(--card2);color:var(--text);}
-
-  .table-wrap{overflow-x:auto;}
-  table{width:100%;border-collapse:collapse;font-size:0.85rem;}
-  th{background:var(--card2);color:var(--muted);font-size:0.72rem;text-transform:uppercase;letter-spacing:0.5px;padding:10px 12px;text-align:left;font-weight:600;}
-  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
-  tr:hover td{background:rgba(59,158,255,0.04);}
-  tr:last-child td{border-bottom:none;}
-  .no-data{text-align:center;color:var(--muted);padding:40px;font-size:0.9rem;}
-
-  .pump-tiles{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px;}
-  .pump-tile{background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:16px;text-align:center;}
-  .pump-tile-val{font-size:1.6rem;font-weight:700;font-family:'DM Mono',monospace;}
-  .pump-tile-lbl{font-size:0.72rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:0.5px;}
-
-  .report-tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px;}
-  .report-tile{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px 16px;text-align:center;}
-  .report-tile-title{font-size:0.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;}
-  .report-tile-val{font-size:2.4rem;font-weight:700;font-family:'DM Mono',monospace;}
-  .report-tile-sub{font-size:0.75rem;color:var(--muted);margin-top:4px;}
-
-  .bolus-entry{display:grid;grid-template-columns:90px 80px 1fr 90px 80px;gap:8px;align-items:end;margin-bottom:12px;}
-  .bolus-list{display:flex;flex-direction:column;gap:6px;max-height:200px;overflow-y:auto;}
-  .bolus-row{display:flex;align-items:center;gap:12px;background:var(--card2);border:1px solid var(--border);border-radius:8px;padding:8px 14px;font-size:0.85rem;}
-  .bolus-units{font-weight:700;color:var(--purple);font-family:'DM Mono',monospace;min-width:40px;}
-
-  .insights{background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:16px;font-family:'DM Mono',monospace;font-size:0.82rem;line-height:1.8;color:var(--text);white-space:pre-wrap;max-height:320px;overflow-y:auto;}
-
-  .pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.72rem;font-weight:600;}
-  .pill-green{background:rgba(34,212,122,0.12);color:var(--green);}
-  .pill-red{background:rgba(255,71,87,0.12);color:var(--red);}
-  .pill-orange{background:rgba(255,170,0,0.12);color:var(--orange);}
-
-  .del-btn{background:none;border:none;color:var(--muted);cursor:pointer;font-size:0.9rem;padding:2px 6px;border-radius:4px;transition:color 0.15s;}
-  .del-btn:hover{color:var(--red);}
-
-  /* NS Settings card */
-  .ns-config{background:rgba(59,158,255,0.05);border:1px solid rgba(59,158,255,0.2);border-radius:10px;padding:16px;margin-bottom:16px;}
-  .ns-config-title{font-size:0.82rem;font-weight:600;color:var(--blue);margin-bottom:12px;}
-
-  ::-webkit-scrollbar{width:5px;height:5px;}
-  ::-webkit-scrollbar-track{background:transparent;}
-  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
-
-  @media(max-width:900px){.two-col{grid-template-columns:1fr;}.report-tiles{grid-template-columns:repeat(2,1fr);}.bolus-entry{grid-template-columns:1fr 1fr;}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MiniMed 780G Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .pulse-green { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .5; } }
+        body { background-color: #0d1117; color: #c9d1d9; }
+    </style>
 </head>
-<body>
-
-<div class="header">
-  <div class="header-title">
-    🩸 MiniMed 780G Diabetes Tracker
-    <span>— Live via Nightscout</span>
-  </div>
-  <div class="live-badge">
-    <div class="live-dot" id="liveDot"></div>
-    <div class="live-text" id="liveText">Connecting...</div>
-  </div>
-</div>
-
-<div class="big-display">
-  <div class="reading-block">
-    <div class="big-number" id="bigNumber">---</div>
-    <div class="trend-arrow" id="trendArrow"></div>
-    <div class="big-unit">mg/dL</div>
-    <div id="statusBadge"></div>
-  </div>
-
-  <div class="display-center">
-    <div class="last-time" id="lastTime">Waiting for live data...</div>
-    <div class="alert-box" id="alertBox"></div>
-    <div class="range-bar-wrap">
-      <div class="range-bar"><div class="range-dot" id="rangeDot"></div></div>
-      <div class="range-labels"><span>Low &lt;70</span><span>Target Range</span><span>High &gt;180</span></div>
-    </div>
-  </div>
-
-  <div class="ns-status">
-    <div class="ns-status-title">📡 Live Feed</div>
-    <div class="ns-row"><span style="color:var(--muted)">Source</span><span class="ns-val" style="color:var(--blue)">Nightscout</span></div>
-    <div class="ns-row"><span style="color:var(--muted)">Last sync</span><span class="ns-val" id="lastSync" style="color:var(--muted)">--</span></div>
-    <div class="ns-row"><span style="color:var(--muted)">Next update</span><span class="countdown" id="countdown">--</span></div>
-    <div class="ns-row"><span style="color:var(--muted)">Delta</span><span class="ns-val" id="deltaBG" style="color:var(--muted)">--</span></div>
-  </div>
-
-  <div class="quick-stats">
-    <div class="qstat"><div class="qstat-val" id="qs_avg" style="color:var(--blue)">--</div><div class="qstat-lbl">Avg BG</div></div>
-    <div class="qstat"><div class="qstat-val" id="qs_tir" style="color:var(--green)">--</div><div class="qstat-lbl">In Range</div></div>
-    <div class="qstat"><div class="qstat-val" id="qs_a1c" style="color:var(--purple)">--</div><div class="qstat-lbl">Est A1C</div></div>
-    <div class="qstat"><div class="qstat-val" id="qs_tdd" style="color:var(--teal)">--</div><div class="qstat-lbl">Insulin Today</div></div>
-  </div>
-</div>
-
-<div class="tabs">
-  <div class="tab active" onclick="switchTab('log')">📋 Log &amp; History</div>
-  <div class="tab" onclick="switchTab('pump')">💉 Pump Data</div>
-  <div class="tab" onclick="switchTab('reports')">📊 Reports</div>
-  <div class="tab" onclick="switchTab('settings')">⚙ Settings</div>
-</div>
-
-<div class="main">
-
-<!-- TAB: LOG -->
-<div id="tab-log" class="tab-content active">
-  <div class="two-col">
-    <div>
-      <div class="card">
-        <div class="card-header">📝 Log a Manual Reading</div>
-        <div class="card-body">
-          <div class="form-group">
-            <label class="form-label">Blood Glucose (mg/dL) *</label>
-            <input type="number" id="inp_glucose" class="form-input" placeholder="e.g. 112" min="20" max="600">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Date &amp; Time</label>
-            <input type="datetime-local" id="inp_time" class="form-input">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Reading Type</label>
-            <select id="inp_type" class="form-input">
-              <option>CGM (Sensor)</option>
-              <option>Manual BG Check</option>
-              <option>Calibration</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Meal Context</label>
-            <select id="inp_meal" class="form-input">
-              <option value="">— Select —</option>
-              <option>Fasting</option><option>Before Meal</option>
-              <option>After Meal (1hr)</option><option>After Meal (2hr)</option>
-              <option>Bedtime</option><option>Exercise</option><option>Random Check</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Carbs Eaten (grams)</label>
-            <input type="number" id="inp_carbs" class="form-input" placeholder="0" min="0">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Insulin Delivered (units)</label>
-            <input type="number" id="inp_insulin" class="form-input" placeholder="0" min="0" step="0.05">
-          </div>
-          <div class="form-group">
-            <label class="form-label">Notes</label>
-            <textarea id="inp_notes" class="form-input" placeholder="Food, exercise, illness..."></textarea>
-          </div>
-          <button class="btn btn-primary" onclick="logReading()">＋ Log Reading</button>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="card" style="height:100%">
-        <div class="card-header">
-          <span>📋 Reading History</span>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-ghost" style="font-size:0.78rem;padding:5px 10px" onclick="exportData()">⬇ Export</button>
-            <button class="btn btn-ghost" style="font-size:0.78rem;padding:5px 10px" onclick="document.getElementById('importFile').click()">⬆ Import</button>
-            <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
-          </div>
-        </div>
-        <div class="card-body" style="padding:0">
-          <div class="table-wrap" style="max-height:520px;overflow-y:auto">
-            <table>
-              <thead>
-                <tr><th>mg/dL</th><th>Status</th><th>Date &amp; Time</th><th>Type</th><th>Meal</th><th>Carbs</th><th>Insulin</th><th>Mode</th><th>Notes</th><th></th></tr>
-              </thead>
-              <tbody id="historyBody">
-                <tr><td colspan="10" class="no-data">No readings yet</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- TAB: PUMP -->
-<div id="tab-pump" class="tab-content">
-  <div class="two-col">
-    <div>
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-header">💉 Reservoir &amp; Infusion Site</div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label">Insulin Remaining (units)</label><input type="number" id="pump_reservoir" class="form-input" placeholder="e.g. 200"></div>
-          <div class="form-group"><label class="form-label">Site Location</label><input type="text" id="pump_site" class="form-input" placeholder="e.g. Left Abdomen"></div>
-          <div class="form-group"><label class="form-label">Infusion Set Changed</label><input type="datetime-local" id="pump_site_date" class="form-input"></div>
-          <div class="form-group"><label class="form-label">Sensor Session Started</label><input type="datetime-local" id="pump_sensor_date" class="form-input"></div>
-          <button class="btn btn-primary" onclick="savePumpInfo()">💾 Save Pump Info</button>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">⚙ 780G Smart Settings</div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label">SmartGuard Target (mg/dL)</label><input type="number" id="pump_sg_target" class="form-input" value="100"></div>
-          <div class="form-group"><label class="form-label">Insulin-to-Carb Ratio (g per unit)</label><input type="number" id="pump_icr" class="form-input" placeholder="e.g. 10"></div>
-          <div class="form-group"><label class="form-label">Sensitivity Factor (mg/dL per unit)</label><input type="number" id="pump_isf" class="form-input" placeholder="e.g. 50"></div>
-          <div class="form-group"><label class="form-label">Basal Rate (units/hr)</label><input type="number" id="pump_basal" class="form-input" placeholder="e.g. 0.8" step="0.05"></div>
-          <button class="btn btn-primary" onclick="savePumpSettings()">💾 Save Settings</button>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="card" style="margin-bottom:16px">
-        <div class="card-header">📡 Pump Status</div>
-        <div class="card-body">
-          <div class="pump-tiles">
-            <div class="pump-tile"><div class="pump-tile-val" id="pt_reservoir" style="color:var(--teal)">--</div><div class="pump-tile-lbl">Reservoir</div></div>
-            <div class="pump-tile"><div class="pump-tile-val" id="pt_site" style="color:var(--orange)">--</div><div class="pump-tile-lbl">Site Age</div></div>
-            <div class="pump-tile"><div class="pump-tile-val" id="pt_sensor" style="color:var(--blue)">--</div><div class="pump-tile-lbl">Sensor Age</div></div>
-          </div>
-          <div id="pump_warnings" style="display:none;background:rgba(255,170,0,0.08);border:1px solid rgba(255,170,0,0.3);border-radius:8px;padding:10px 14px;font-size:0.84rem;color:var(--orange)"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-header">💊 Bolus Log</div>
-        <div class="card-body">
-          <div class="bolus-entry">
-            <div><label class="form-label">Time</label><input type="time" id="bolus_time" class="form-input"></div>
-            <div><label class="form-label">Units</label><input type="number" id="bolus_units" class="form-input" placeholder="0" step="0.05"></div>
-            <div><label class="form-label">Type</label>
-              <select id="bolus_type" class="form-input">
-                <option>Meal Bolus</option><option>Correction Bolus</option>
-                <option>Manual Bolus</option><option>Auto Correction (780G)</option><option>Extended Bolus</option>
-              </select>
+<body class="p-4 md:p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="flex justify-between items-center mb-8 border-b border-gray-700 pb-4">
+            <h1 class="text-2xl font-bold text-blue-400">MiniMed 780G Tracker</h1>
+            <div id="connection-status" class="flex items-center gap-2 text-sm text-gray-400">
+                <span id="status-dot" class="h-3 w-3 rounded-full bg-red-500"></span>
+                <span id="status-text">Disconnected</span>
             </div>
-            <div><label class="form-label">BG</label><input type="number" id="bolus_bg" class="form-input" placeholder="mg/dL"></div>
-            <div><label class="form-label">&nbsp;</label><button class="btn btn-primary" style="padding:9px" onclick="addBolus()">+ Add</button></div>
-          </div>
-          <div class="bolus-list" id="bolusList"><div style="text-align:center;color:var(--muted);padding:20px;font-size:0.85rem">No boluses logged</div></div>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg text-center">
+                <p class="text-gray-400 text-sm uppercase mb-2">Current Glucose</p>
+                <div id="bg-value" class="text-6xl font-black text-white">--</div>
+                <div id="bg-trend" class="text-2xl text-blue-400 mt-2">--</div>
+            </div>
+            <div class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+                <p class="text-gray-400 text-sm uppercase mb-4">Live Feed</p>
+                <div class="space-y-2 text-sm">
+                    <div class="flex justify-between"><span>Next update:</span><span id="next-update" class="text-white">--</span></div>
+                    <div class="flex justify-between"><span>Delta:</span><span id="delta-val" class="text-white">--</span></div>
+                    <div class="flex justify-between"><span>Last Sync:</span><span id="last-sync" class="text-white">--</span></div>
+                </div>
+            </div>
+            <div id="error-box" class="hidden bg-red-900/30 border border-red-500 p-6 rounded-xl text-red-200">
+                <p class="font-bold">Connection Issue</p>
+                <p id="error-msg" class="text-sm mt-2">Attempting to wake up server...</p>
+                <button onclick="wakeServer()" class="mt-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded text-xs">Force Retry</button>
+            </div>
         </div>
-      </div>
+
+        <div class="bg-gray-800 p-6 rounded-xl border border-gray-700">
+            <h2 class="text-lg font-bold mb-4 border-b border-gray-700 pb-2">Settings</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">Nightscout URL</label>
+                    <input id="ns-url" type="text" value="https://cgm-remote-monitor-qb91.onrender.com" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-400 mb-1">API Secret</label>
+                    <input id="ns-secret" type="password" value="Tracker2024!!" class="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 text-sm">
+                </div>
+            </div>
+            <button onclick="connect()" class="mt-4 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2 rounded font-bold transition">Save & Connect</button>
+        </div>
     </div>
-  </div>
-</div>
 
-<!-- TAB: REPORTS -->
-<div id="tab-reports" class="tab-content">
-  <div class="report-tiles">
-    <div class="report-tile"><div class="report-tile-title">Average BG</div><div class="report-tile-val" id="rpt_avg" style="color:var(--blue)">--</div><div class="report-tile-sub">mg/dL</div></div>
-    <div class="report-tile"><div class="report-tile-title">Time in Range</div><div class="report-tile-val" id="rpt_tir" style="color:var(--green)">--</div><div class="report-tile-sub" id="rpt_tir_sub">Target 70–180</div></div>
-    <div class="report-tile"><div class="report-tile-title">Est. A1C</div><div class="report-tile-val" id="rpt_a1c" style="color:var(--purple)">--</div><div class="report-tile-sub">ADAG formula</div></div>
-    <div class="report-tile"><div class="report-tile-title">Low Events</div><div class="report-tile-val" id="rpt_low" style="color:var(--red)">--</div><div class="report-tile-sub" id="rpt_low_sub">Below 70</div></div>
-    <div class="report-tile"><div class="report-tile-title">High Events</div><div class="report-tile-val" id="rpt_high" style="color:var(--orange)">--</div><div class="report-tile-sub" id="rpt_high_sub">Above 180</div></div>
-  </div>
-  <div class="card">
-    <div class="card-header">
-      <span>📈 Patterns &amp; Insights</span>
-      <button class="btn btn-primary" style="padding:7px 16px;font-size:0.84rem;width:auto" onclick="buildReport()">🔄 Generate Report</button>
-    </div>
-    <div class="card-body"><div class="insights" id="insightsBox">Click "Generate Report" to analyze your readings...</div></div>
-  </div>
-</div>
+    <script>
+        const CONFIG = {
+            url: "https://cgm-remote-monitor-qb91.onrender.com",
+            pingInterval: 300000 // 5 minutes
+        };
 
-<!-- TAB: SETTINGS -->
-<div id="tab-settings" class="tab-content">
-  <div class="two-col">
-    <div>
-      <!-- NIGHTSCOUT CONFIG -->
-      <div class="ns-config" style="margin-bottom:16px">
-        <div class="ns-config-title">📡 Nightscout Live Connection</div>
-        <div class="form-group">
-          <label class="form-label">Your Nightscout URL</label>
-          <input type="text" id="set_ns_url" class="form-input" placeholder="https://your-app.onrender.com">
-        </div>
-        <div class="form-group">
-          <label class="form-label">API Secret (the password you set)</label>
-          <input type="password" id="set_ns_secret" class="form-input" placeholder="Your API_SECRET">
-        </div>
-        <button class="btn btn-primary" onclick="saveNSSettings()" style="margin-bottom:8px">💾 Save &amp; Connect</button>
-        <div id="ns_test_result" style="font-size:0.82rem;margin-top:8px;display:none"></div>
-      </div>
+        // 1. THE WAKE-UP SCRIPT
+        // This pings Render to keep it from sleeping while the tab is open.
+        async function wakeServer() {
+            console.log("Pinging Render server to keep it awake...");
+            try {
+                // We use 'no-cors' to bypass security blocks just for the ping
+                await fetch(CONFIG.url, { mode: 'no-cors' });
+                console.log("Server heartbeat sent.");
+            } catch (e) {
+                console.log("Server is still cold-starting...");
+            }
+        }
 
-      <div class="card">
-        <div class="card-header">🎯 Blood Glucose Targets</div>
-        <div class="card-body">
-          <div class="form-group"><label class="form-label">Low Threshold (mg/dL)</label><input type="number" id="set_low" class="form-input" value="70"></div>
-          <div class="form-group"><label class="form-label">High Threshold (mg/dL)</label><input type="number" id="set_high" class="form-input" value="180"></div>
-          <button class="btn btn-primary" onclick="saveSettings()">💾 Save Targets</button>
-        </div>
-      </div>
-    </div>
-    <div>
-      <div class="card">
-        <div class="card-header">ℹ About Your Device</div>
-        <div class="card-body">
-          <table style="font-size:0.88rem">
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">Pump</td><td style="padding:6px 0">Medtronic MiniMed 780G</td></tr>
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">Algorithm</td><td style="padding:6px 0">SmartGuard™ Auto Mode</td></tr>
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">CGM</td><td style="padding:6px 0">Guardian 4 Sensor</td></tr>
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">Live Data</td><td style="padding:6px 0">Nightscout via CareLink</td></tr>
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">Update Interval</td><td style="padding:6px 0">Every 5 minutes</td></tr>
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">Sensor Life</td><td style="padding:6px 0">Up to 7 days</td></tr>
-            <tr><td style="color:var(--muted);padding:6px 12px 6px 0;font-weight:600">Infusion Set</td><td style="padding:6px 0">Change every 2–3 days</td></tr>
-          </table>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
+        // 2. DATA FETCHING LOGIC
+        async function connect() {
+            const url = document.getElementById('ns-url').value.replace(/\/$/, "");
+            const secret = document.getElementById('ns-secret').value;
+            const statusDot = document.getElementById('status-dot');
+            const statusText = document.getElementById('status-text');
+            const errorBox = document.getElementById('error-box');
 
-</div>
+            statusText.innerText = "Connecting...";
+            
+            try {
+                const response = await fetch(`${url}/api/v1/entries/sgv.json?count=1`);
+                
+                if (response.status === 502) {
+                    throw new Error("Server is sleeping (502). Wait 60s and try again.");
+                }
 
-<script>
-// ── Storage ──────────────────────────────────────────────────
-const KEYS={readings:'dt_readings',pump:'dt_pump',settings:'dt_settings',bolus:'dt_bolus',ns:'dt_ns'};
-let readings=[],pumpInfo={},bolusLog=[];
-let settings={low:70,high:180};
-let nsConfig={url:'https://cgm-remote-monitor-qb91.onrender.com',secret:''};
-let countdownSecs=300,countdownTimer=null,fetchTimer=null;
+                if (!response.ok) throw new Error("Connection failed");
 
-function load(){
-  try{readings=JSON.parse(localStorage.getItem(KEYS.readings)||'[]');}catch(e){readings=[];}
-  try{pumpInfo=JSON.parse(localStorage.getItem(KEYS.pump)||'{}');}catch(e){pumpInfo={};}
-  try{settings=Object.assign({low:70,high:180},JSON.parse(localStorage.getItem(KEYS.settings)||'{}'));}catch(e){}
-  try{bolusLog=JSON.parse(localStorage.getItem(KEYS.bolus)||'[]');}catch(e){bolusLog=[];}
-  try{nsConfig=Object.assign({url:'https://cgm-remote-monitor-qb91.onrender.com',secret:''},JSON.parse(localStorage.getItem(KEYS.ns)||'{}'));}catch(e){}
-}
+                const data = await response.json();
+                updateUI(data[0]);
+                
+                // Success State
+                statusDot.className = "h-3 w-3 rounded-full bg-green-500 pulse-green";
+                statusText.innerText = "Live Connected";
+                errorBox.classList.add('hidden');
+            } catch (err) {
+                console.error(err);
+                statusDot.className = "h-3 w-3 rounded-full bg-red-500";
+                statusText.innerText = "Error";
+                errorBox.classList.remove('hidden');
+                document.getElementById('error-msg').innerText = err.message;
+            }
+        }
 
-function persist(){
-  localStorage.setItem(KEYS.readings,JSON.stringify(readings));
-  localStorage.setItem(KEYS.pump,JSON.stringify(pumpInfo));
-  localStorage.setItem(KEYS.settings,JSON.stringify(settings));
-  localStorage.setItem(KEYS.bolus,JSON.stringify(bolusLog));
-  localStorage.setItem(KEYS.ns,JSON.stringify(nsConfig));
-}
+        function updateUI(entry) {
+            if (!entry) return;
+            document.getElementById('bg-value').innerText = entry.sgv;
+            document.getElementById('last-sync').innerText = new Date(entry.date).toLocaleTimeString();
+            // Trend Arrow Logic
+            const trends = { 0: "No Trend", 1: "⬆️ Double Up", 2: "⬆️ Single Up", 3: "↗️ Slight Up", 4: "➡️ Flat", 5: "↘️ Slight Down", 6: "⬇️ Single Down", 7: "⬇️ Double Down" };
+            document.getElementById('bg-trend').innerText = trends[entry.trend] || "Flat";
+        }
 
-// ── Helpers ──────────────────────────────────────────────────
-function colorFor(v){
-  if(v<settings.low)return'var(--red)';
-  if(v<=settings.high)return'var(--green)';
-  if(v<=250)return'var(--orange)';
-  return'var(--red)';
-}
-function classFor(v){
-  if(v<settings.low)return'low';
-  if(v<=settings.high)return'in-range';
-  if(v<=250)return'high';
-  return'very-high';
-}
-function labelFor(v){
-  if(v<settings.low)return'LOW';
-  if(v<=settings.high)return'IN RANGE';
-  if(v<=250)return'HIGH';
-  return'VERY HIGH';
-}
-function badgeClass(v){
-  if(v<settings.low)return'badge-low';
-  if(v<=settings.high)return'badge-in-range';
-  if(v<=250)return'badge-high';
-  return'badge-very-high';
-}
-function trendSymbol(d){
-  const map={'DoubleUp':'⬆⬆','SingleUp':'⬆','FortyFiveUp':'↗','Flat':'→','FortyFiveDown':'↘','SingleDown':'⬇','DoubleDown':'⬇⬇'};
-  return map[d]||'';
-}
-function nowLocal(){
-  const d=new Date();d.setMinutes(d.getMinutes()-d.getTimezoneOffset());
-  return d.toISOString().slice(0,16);
-}
-
-// ── Nightscout Live Fetch ─────────────────────────────────────
-async function fetchNightscout(){
-  if(!nsConfig.url)return;
-  const url=nsConfig.url.replace(/\/$/,'');
-  try{
-    const headers={'Accept':'application/json'};
-    if(nsConfig.secret) headers['API-SECRET']=nsConfig.secret;
-
-    // Try direct first, then CORS proxy fallback
-    let resp;
-    try{
-      resp=await fetch(`${url}/api/v1/entries/sgv.json?count=1`,{headers,mode:'cors'});
-    }catch(e){
-      // CORS blocked - use proxy
-      const proxyUrl=`https://corsproxy.io/?${encodeURIComponent(url+'/api/v1/entries/sgv.json?count=1')}`;
-      resp=await fetch(proxyUrl,{headers});
-    }
-    if(!resp.ok) throw new Error('HTTP '+resp.status);
-    const data=await resp.json();
-    if(!data||!data.length) throw new Error('No data');
-
-    const entry=data[0];
-    const sgv=entry.sgv||entry.glucose;
-    const dir=entry.direction||'';
-    const mills=entry.date||entry.dateString;
-    const entryTime=new Date(mills);
-
-    // Set live status
-    setLiveStatus('live','● Live — '+entryTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'}));
-    document.getElementById('lastSync').textContent=entryTime.toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-
-    // Delta from previous
-    if(readings.length){
-      const delta=sgv-readings[0].glucose;
-      document.getElementById('deltaBG').textContent=(delta>=0?'+':'')+delta+' mg/dL';
-      document.getElementById('deltaBG').style.color=Math.abs(delta)>20?'var(--orange)':'var(--green)';
-    }
-
-    // Add to readings if newer than last
-    const lastTime=readings.length?readings[0].time:'';
-    const newTime=entryTime.toISOString().slice(0,16);
-    if(newTime!==lastTime){
-      readings.unshift({
-        id:entry.date||Date.now(),
-        glucose:sgv,
-        time:newTime,
-        type:'CGM (Sensor)',
-        meal:'',carbs:0,insulin:0,
-        notes:'Auto-synced from Nightscout',
-        mode:document.getElementById('pumpModeSelect')?document.getElementById('pumpModeSelect').value:'Auto Mode',
-        direction:dir,
-      });
-      readings.sort((a,b)=>b.time.localeCompare(a.time));
-      // Keep last 1000
-      if(readings.length>1000) readings=readings.slice(0,1000);
-      persist();
-    }
-
-    // Update trend
-    document.getElementById('trendArrow').textContent=trendSymbol(dir);
-    document.getElementById('trendArrow').style.color=colorFor(sgv);
-
-    refresh();
-    resetCountdown();
-
-  }catch(err){
-    setLiveStatus('error','⚠ '+err.message);
-    console.warn('Nightscout fetch error:',err);
-  }
-}
-
-function setLiveStatus(state,msg){
-  const dot=document.getElementById('liveDot');
-  const txt=document.getElementById('liveText');
-  dot.className='live-dot '+(state==='live'?'live':state==='error'?'error':'');
-  txt.className='live-text '+(state==='live'?'live':state==='error'?'error':'');
-  txt.textContent=msg;
-}
-
-function resetCountdown(){
-  countdownSecs=300;
-  if(countdownTimer) clearInterval(countdownTimer);
-  countdownTimer=setInterval(()=>{
-    countdownSecs--;
-    const m=Math.floor(countdownSecs/60),s=countdownSecs%60;
-    document.getElementById('countdown').textContent=`${m}:${s.toString().padStart(2,'0')}`;
-    if(countdownSecs<=0){clearInterval(countdownTimer);fetchNightscout();}
-  },1000);
-}
-
-function startLiveFeed(){
-  if(fetchTimer) clearInterval(fetchTimer);
-  fetchNightscout();
-  fetchTimer=setInterval(fetchNightscout,300000);
-}
-
-// ── Tabs ─────────────────────────────────────────────────────
-function switchTab(name){
-  document.querySelectorAll('.tab').forEach((t,i)=>{
-    t.classList.toggle('active',['log','pump','reports','settings'][i]===name);
-  });
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-  document.getElementById('tab-'+name).classList.add('active');
-}
-
-// ── Log Reading ───────────────────────────────────────────────
-function logReading(){
-  const g=parseInt(document.getElementById('inp_glucose').value);
-  if(!g||g<20||g>600){alert('Enter a valid glucose reading (20–600 mg/dL)');return;}
-  const t=document.getElementById('inp_time').value;
-  if(!t){alert('Please set a date and time');return;}
-  readings.unshift({
-    id:Date.now(),glucose:g,time:t,
-    type:document.getElementById('inp_type').value,
-    meal:document.getElementById('inp_meal').value,
-    carbs:parseFloat(document.getElementById('inp_carbs').value)||0,
-    insulin:parseFloat(document.getElementById('inp_insulin').value)||0,
-    notes:document.getElementById('inp_notes').value.trim(),
-    mode:document.getElementById('pumpModeSelect')?document.getElementById('pumpModeSelect').value:'',
-  });
-  readings.sort((a,b)=>b.time.localeCompare(a.time));
-  persist();
-  ['inp_glucose','inp_carbs','inp_insulin','inp_notes'].forEach(id=>document.getElementById(id).value='');
-  document.getElementById('inp_meal').value='';
-  document.getElementById('inp_time').value=nowLocal();
-  refresh();
-}
-
-function deleteReading(id){
-  if(!confirm('Delete this reading?'))return;
-  readings=readings.filter(r=>r.id!==id);
-  persist();refresh();
-}
-
-function exportData(){
-  const a=document.createElement('a');
-  a.href='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(readings,null,2));
-  a.download='780g-backup-'+new Date().toISOString().slice(0,10)+'.json';
-  a.click();
-}
-
-function importData(e){
-  const file=e.target.files[0];if(!file)return;
-  const reader=new FileReader();
-  reader.onload=ev=>{
-    try{
-      const imp=JSON.parse(ev.target.result);
-      if(!Array.isArray(imp)){alert('Invalid file');return;}
-      if(confirm('Merge with existing?\n(Cancel = replace all)')){
-        const ids=new Set(readings.map(r=>r.id));
-        imp.forEach(r=>{if(!ids.has(r.id))readings.push(r);});
-      }else{readings=imp;}
-      readings.sort((a,b)=>b.time.localeCompare(a.time));
-      persist();refresh();alert('Imported '+imp.length+' readings!');
-    }catch(err){alert('Could not read file.');}
-  };
-  reader.readAsText(file);e.target.value='';
-}
-
-// ── Pump ─────────────────────────────────────────────────────
-function savePumpInfo(){
-  pumpInfo.reservoir=document.getElementById('pump_reservoir').value;
-  pumpInfo.site=document.getElementById('pump_site').value;
-  pumpInfo.siteDate=document.getElementById('pump_site_date').value;
-  pumpInfo.sensorDate=document.getElementById('pump_sensor_date').value;
-  persist();refreshPump();alert('Pump info saved!');
-}
-function savePumpSettings(){
-  pumpInfo.sgTarget=document.getElementById('pump_sg_target').value;
-  pumpInfo.icr=document.getElementById('pump_icr').value;
-  pumpInfo.isf=document.getElementById('pump_isf').value;
-  pumpInfo.basal=document.getElementById('pump_basal').value;
-  persist();alert('Settings saved!');
-}
-function refreshPump(){
-  const res=pumpInfo.reservoir||'';
-  document.getElementById('pt_reservoir').textContent=res?res+'u':'--';
-  const warnings=[];
-  if(pumpInfo.siteDate){
-    const hrs=Math.floor((Date.now()-new Date(pumpInfo.siteDate))/3600000);
-    const d=Math.floor(hrs/24),h=hrs%24;
-    const el=document.getElementById('pt_site');
-    el.textContent=`${d}d ${h}h`;
-    el.style.color=hrs<48?'var(--green)':hrs<72?'var(--orange)':'var(--red)';
-    if(hrs>=72)warnings.push('⚠ Infusion set overdue for change ('+d+'d '+h+'h old)');
-    else if(hrs>=48)warnings.push('⚠ Infusion set change recommended ('+d+'d '+h+'h old)');
-  }else{document.getElementById('pt_site').textContent='--';}
-  if(pumpInfo.sensorDate){
-    const hrs2=Math.floor((Date.now()-new Date(pumpInfo.sensorDate))/3600000);
-    const d2=Math.floor(hrs2/24),h2=hrs2%24;
-    const el2=document.getElementById('pt_sensor');
-    el2.textContent=`${d2}d ${h2}h`;
-    el2.style.color=hrs2<144?'var(--green)':hrs2<168?'var(--orange)':'var(--red)';
-    if(hrs2>=168)warnings.push('⚠ Sensor session expired ('+d2+'d old)');
-  }else{document.getElementById('pt_sensor').textContent='--';}
-  const wb=document.getElementById('pump_warnings');
-  if(warnings.length){wb.style.display='block';wb.innerHTML=warnings.join('<br>');}
-  else{wb.style.display='none';}
-  if(pumpInfo.reservoir)document.getElementById('pump_reservoir').value=pumpInfo.reservoir;
-  if(pumpInfo.site)document.getElementById('pump_site').value=pumpInfo.site;
-  if(pumpInfo.siteDate)document.getElementById('pump_site_date').value=pumpInfo.siteDate;
-  if(pumpInfo.sensorDate)document.getElementById('pump_sensor_date').value=pumpInfo.sensorDate;
-  if(pumpInfo.sgTarget)document.getElementById('pump_sg_target').value=pumpInfo.sgTarget;
-  if(pumpInfo.icr)document.getElementById('pump_icr').value=pumpInfo.icr;
-  if(pumpInfo.isf)document.getElementById('pump_isf').value=pumpInfo.isf;
-  if(pumpInfo.basal)document.getElementById('pump_basal').value=pumpInfo.basal;
-}
-
-// ── Bolus ─────────────────────────────────────────────────────
-function addBolus(){
-  const units=parseFloat(document.getElementById('bolus_units').value);
-  if(!units||units<=0){alert('Enter valid units');return;}
-  bolusLog.unshift({id:Date.now(),time:document.getElementById('bolus_time').value,units,
-    type:document.getElementById('bolus_type').value,bg:document.getElementById('bolus_bg').value});
-  document.getElementById('bolus_units').value='';document.getElementById('bolus_bg').value='';
-  persist();refreshBolus();refresh();
-}
-function refreshBolus(){
-  const el=document.getElementById('bolusList');
-  if(!bolusLog.length){el.innerHTML='<div style="text-align:center;color:var(--muted);padding:20px;font-size:0.85rem">No boluses logged</div>';return;}
-  let total=0;
-  el.innerHTML=bolusLog.slice(0,10).map(b=>{
-    total+=b.units;
-    return`<div class="bolus-row"><span style="color:var(--muted);font-family:'DM Mono',monospace;font-size:0.78rem">${b.time}</span><span class="bolus-units">${b.units}u</span><span style="flex:1">${b.type}</span>${b.bg?`<span style="color:var(--muted);font-size:0.78rem">BG:${b.bg}</span>`:''}</div>`;
-  }).join('');
-  document.getElementById('qs_tdd').textContent=total.toFixed(1)+'u';
-}
-
-// ── NS Settings ───────────────────────────────────────────────
-async function saveNSSettings(){
-  nsConfig.url=(document.getElementById('set_ns_url').value||'').trim().replace(/\/$/,'');
-  nsConfig.secret=(document.getElementById('set_ns_secret').value||'').trim();
-  persist();
-  const res=document.getElementById('ns_test_result');
-  res.style.display='block';res.style.color='var(--muted)';res.textContent='Testing connection...';
-  try{
-    const headers={'Accept':'application/json'};
-    if(nsConfig.secret)headers['API-SECRET']=nsConfig.secret;
-    let resp;
-    try{
-      resp=await fetch(`${nsConfig.url}/api/v1/entries/sgv.json?count=1`,{headers,mode:'cors'});
-    }catch(e){
-      const proxyUrl=`https://corsproxy.io/?${encodeURIComponent(nsConfig.url+'/api/v1/entries/sgv.json?count=1')}`;
-      resp=await fetch(proxyUrl,{headers});
-    }
-    if(!resp.ok)throw new Error('HTTP '+resp.status);
-    const data=await resp.json();
-    if(data&&data.length){
-      res.style.color='var(--green)';res.textContent='✓ Connected! Got reading: '+data[0].sgv+' mg/dL';
-      startLiveFeed();
-    }else{res.style.color='var(--orange)';res.textContent='Connected but no data yet — Nightscout may still be starting up';}
-  }catch(err){res.style.color='var(--red)';res.textContent='✗ Could not connect: '+err.message;}
-}
-
-// ── Reports ───────────────────────────────────────────────────
-function buildReport(){
-  if(!readings.length){alert('Log some readings first!');return;}
-  const vals=readings.map(r=>r.glucose);
-  const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
-  const lo=settings.low,hi=settings.high;
-  const inr=vals.filter(v=>v>=lo&&v<=hi).length;
-  const lows=vals.filter(v=>v<lo).length;
-  const highs=vals.filter(v=>v>hi).length;
-  const tir=Math.round(inr/vals.length*100);
-  const a1c=((avg+46.7)/28.7).toFixed(1);
-  document.getElementById('rpt_avg').textContent=avg;document.getElementById('rpt_avg').style.color=colorFor(avg);
-  document.getElementById('rpt_tir').textContent=tir+'%';document.getElementById('rpt_tir').style.color=tir>=70?'var(--green)':tir>=50?'var(--orange)':'var(--red)';
-  document.getElementById('rpt_tir_sub').textContent=inr+' of '+vals.length+' readings';
-  document.getElementById('rpt_a1c').textContent=a1c+'%';document.getElementById('rpt_a1c').style.color=a1c<7?'var(--green)':a1c<8?'var(--orange)':'var(--red)';
-  document.getElementById('rpt_low').textContent=lows;document.getElementById('rpt_low').style.color=lows>0?'var(--red)':'var(--green)';
-  document.getElementById('rpt_low_sub').textContent='Below '+lo+' mg/dL';
-  document.getElementById('rpt_high').textContent=highs;document.getElementById('rpt_high').style.color=highs>0?'var(--orange)':'var(--green)';
-  document.getElementById('rpt_high_sub').textContent='Above '+hi+' mg/dL';
-  let lines=[`Total: ${vals.length} readings`,`Range: ${readings[readings.length-1].time} → ${readings[0].time}`,'','BY MEAL:'];
-  const mg={};readings.forEach(r=>{const m=r.meal||'No context';mg[m]=mg[m]||[];mg[m].push(r.glucose);});
-  Object.entries(mg).sort().forEach(([m,vs])=>lines.push(`  ${m.padEnd(24)} avg ${Math.round(vs.reduce((a,b)=>a+b,0)/vs.length)} mg/dL (${vs.length}x)`));
-  lines.push('','BY PUMP MODE:');
-  const mdg={};readings.forEach(r=>{const m=r.mode||'Unknown';mdg[m]=mdg[m]||[];mdg[m].push(r.glucose);});
-  Object.entries(mdg).sort().forEach(([m,vs])=>lines.push(`  ${m.padEnd(24)} avg ${Math.round(vs.reduce((a,b)=>a+b,0)/vs.length)} mg/dL (${vs.length}x)`));
-  lines.push('','INSIGHTS:');
-  if(lows>0)lines.push(`  ⚠ ${lows} lows (${Math.round(lows/vals.length*100)}%) — review with care team`);
-  if(highs>0)lines.push(`  ⚠ ${highs} highs (${Math.round(highs/vals.length*100)}%) — check post-meal patterns`);
-  if(tir>=70)lines.push(`  ✓ ${tir}% time in range — meeting ≥70% target`);else lines.push(`  ⚠ ${tir}% time in range — target is ≥70%`);
-  if(a1c<7)lines.push(`  ✓ Est A1C ${a1c}% — within <7% target`);else if(a1c>=8)lines.push(`  ⚠ Est A1C ${a1c}% — discuss with endocrinologist`);
-  document.getElementById('insightsBox').textContent=lines.join('\n');
-}
-
-// ── Settings ──────────────────────────────────────────────────
-function saveSettings(){
-  settings.low=parseInt(document.getElementById('set_low').value)||70;
-  settings.high=parseInt(document.getElementById('set_high').value)||180;
-  persist();refresh();alert('Targets saved!');
-}
-
-// ── Master Refresh ────────────────────────────────────────────
-function refresh(){
-  if(readings.length){
-    const r=readings[0],v=r.glucose,c=colorFor(v);
-    const bn=document.getElementById('bigNumber');
-    bn.textContent=v;bn.className='big-number '+classFor(v);
-    document.getElementById('statusBadge').innerHTML=`<span class="status-badge ${badgeClass(v)}">${labelFor(v)}</span>`;
-    document.getElementById('lastTime').textContent=`Last reading: ${new Date(r.time).toLocaleString()}  ·  ${r.type}`;
-    const ab=document.getElementById('alertBox');
-    if(v<settings.low){ab.style.display='block';ab.textContent='⚠ LOW: '+v+' mg/dL — Consider fast-acting carbs!';}
-    else if(v>settings.high){ab.style.display='block';ab.textContent='⚠ HIGH: '+v+' mg/dL — Check your care plan!';}
-    else{ab.style.display='none';}
-    const pct=Math.min(98,Math.max(2,(v/400)*100));
-    const dot=document.getElementById('rangeDot');dot.style.display='block';dot.style.left=pct+'%';
-    const vals=readings.map(r=>r.glucose);
-    const avg=Math.round(vals.reduce((a,b)=>a+b,0)/vals.length);
-    const inr=vals.filter(v=>v>=settings.low&&v<=settings.high).length;
-    document.getElementById('qs_avg').textContent=avg;document.getElementById('qs_avg').style.color=colorFor(avg);
-    document.getElementById('qs_tir').textContent=Math.round(inr/vals.length*100)+'%';
-    document.getElementById('qs_a1c').textContent=((avg+46.7)/28.7).toFixed(1)+'%';
-  }else{
-    document.getElementById('bigNumber').textContent='---';document.getElementById('bigNumber').className='big-number';
-    document.getElementById('statusBadge').innerHTML='';
-    document.getElementById('lastTime').textContent='Waiting for live data...';
-    document.getElementById('alertBox').style.display='none';document.getElementById('rangeDot').style.display='none';
-  }
-  const tbody=document.getElementById('historyBody');
-  if(!readings.length){tbody.innerHTML='<tr><td colspan="10" class="no-data">No readings yet</td></tr>';}
-  else{
-    tbody.innerHTML=readings.slice(0,200).map(r=>{
-      const v=r.glucose,c=colorFor(v);
-      const pillCls=v<settings.low?'pill-red':v<=settings.high?'pill-green':'pill-orange';
-      const trend=r.direction?trendSymbol(r.direction):'';
-      return`<tr>
-        <td style="font-weight:700;color:${c};font-family:'DM Mono',monospace">${v} ${trend}</td>
-        <td><span class="pill ${pillCls}">${labelFor(v)}</span></td>
-        <td style="color:var(--muted);font-size:0.8rem;font-family:'DM Mono',monospace">${new Date(r.time).toLocaleString()}</td>
-        <td style="color:var(--muted);font-size:0.82rem">${r.type||''}</td>
-        <td style="color:var(--muted);font-size:0.82rem">${r.meal||''}</td>
-        <td style="color:var(--muted);font-size:0.82rem">${r.carbs?r.carbs+'g':''}</td>
-        <td style="color:var(--purple);font-size:0.82rem;font-family:'DM Mono',monospace">${r.insulin?r.insulin+'u':''}</td>
-        <td style="color:var(--muted);font-size:0.82rem">${r.mode||''}</td>
-        <td style="color:var(--muted);font-size:0.8rem;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.notes||''}</td>
-        <td><button class="del-btn" onclick="deleteReading(${r.id})">✕</button></td>
-      </tr>`;
-    }).join('');
-  }
-  refreshPump();refreshBolus();
-  document.getElementById('set_low').value=settings.low;
-  document.getElementById('set_high').value=settings.high;
-  document.getElementById('set_ns_url').value=nsConfig.url||'';
-}
-
-// ── Init ──────────────────────────────────────────────────────
-load();
-document.getElementById('inp_time').value=nowLocal();
-document.getElementById('bolus_time').value=new Date().toTimeString().slice(0,5);
-refresh();
-setLiveStatus('','Connecting to Nightscout...');
-startLiveFeed();
-</script>
+        // Run wake-up immediately and then every 5 minutes
+        wakeServer();
+        setInterval(wakeServer, CONFIG.pingInterval);
+        
+        // Auto-refresh data every 5 minutes
+        setInterval(connect, 300000);
+    </script>
 </body>
 </html>
+
